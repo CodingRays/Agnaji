@@ -85,8 +85,9 @@ impl From<vk::Result> for InstanceCreateError {
 pub struct InstanceContext {
     entry: ash::Entry,
     instance: ash::Instance,
+    khr_surface: Option<ash::extensions::khr::Surface>,
+    ext_debug_utils: Option<ash::extensions::ext::DebugUtils>,
     enabled_extensions: Box<[CString]>,
-    debug_utils_enabled: bool,
 }
 
 impl InstanceContext {
@@ -121,12 +122,14 @@ impl InstanceContext {
 
         let mut enabled_extensions = HashSet::new();
 
-        let debug_utils_enabled = if supported_extensions.contains(ash::extensions::ext::DebugUtils::name()) && enable_debug {
+        if supported_extensions.contains(ash::extensions::ext::DebugUtils::name()) && enable_debug {
             enabled_extensions.insert(CString::from(ash::extensions::ext::DebugUtils::name()));
-            true
-        } else {
-            false
-        };
+        }
+
+        let khr_portability_enumeration_name = CString::from(CStr::from_bytes_with_nul(b"VK_KHR_portability_enumeration\0").unwrap());
+        if supported_extensions.contains(&khr_portability_enumeration_name) {
+            enabled_extensions.insert(khr_portability_enumeration_name);
+        }
 
         let mut missing_extensions = Vec::new();
         for required_extension in required_extensions.into_iter() {
@@ -140,6 +143,8 @@ impl InstanceContext {
             return Err(InstanceCreateError::MissingRequiredExtensions(missing_extensions));
         }
 
+        let khr_surface_enabled = enabled_extensions.contains(ash::extensions::khr::Surface::name());
+        let ext_debug_utils = enabled_extensions.contains(ash::extensions::ext::DebugUtils::name());
         let enabled_extensions: Box<[_]> = enabled_extensions.into_iter().collect();
         let enabled_extensions_ptr: Vec<_> = enabled_extensions.iter().map(|e| e.as_ptr()).collect();
 
@@ -166,7 +171,7 @@ impl InstanceContext {
             .enabled_extension_names(&enabled_extensions_ptr);
 
         let mut messenger_create_info;
-        if debug_utils_enabled {
+        if ext_debug_utils {
             messenger_create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
                 .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::ERROR | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING | vk::DebugUtilsMessageSeverityFlagsEXT::INFO | vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE)
                 .message_type(vk::DebugUtilsMessageTypeFlagsEXT::GENERAL | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION)
@@ -184,11 +189,23 @@ impl InstanceContext {
             err
         })?;
 
+        let khr_surface = if khr_surface_enabled {
+            Some(ash::extensions::khr::Surface::new(&entry, &instance))
+        } else {
+            None
+        };
+        let ext_debug_utils = if ext_debug_utils {
+            Some(ash::extensions::ext::DebugUtils::new(&entry, &instance))
+        } else {
+            None
+        };
+
         Ok(Self {
             entry,
             instance,
+            khr_surface,
+            ext_debug_utils,
             enabled_extensions,
-            debug_utils_enabled,
         })
     }
 
@@ -200,8 +217,12 @@ impl InstanceContext {
         &self.instance
     }
 
-    pub fn is_debug_utils_enabled(&self) -> bool {
-        self.debug_utils_enabled
+    pub fn get_khr_surface(&self) -> Option<&ash::extensions::khr::Surface> {
+        self.khr_surface.as_ref()
+    }
+
+    pub fn get_ext_debug_utils(&self) -> Option<&ash::extensions::ext::DebugUtils> {
+        self.ext_debug_utils.as_ref()
     }
 
     pub fn is_extension_enabled(&self, name: &CStr) -> bool {

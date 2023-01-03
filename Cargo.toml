@@ -8,3 +8,4 @@ repository = "https://github.com/CodingRays/Agnaji"
 [dependencies]
 ash = "0.37.1"
 log = "0.4.17"
+static_assertions = "1.1.0"
