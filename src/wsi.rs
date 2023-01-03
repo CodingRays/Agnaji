@@ -48,7 +48,7 @@ pub trait VulkanSurfaceProvider: Send {
     /// The created surface must be destroyed by a call to
     /// [`VulkanSurfaceProvider::destroy_surface`] before the surface provider is dropped. Otherwise
     /// the surface provider must panic during drop.
-    fn create_surface(&self) -> Result<vk::SurfaceKHR, VulkanSurfaceCreateError>; // TODO add vulkan instance
+    fn create_surface(&self, instance: &crate::vulkan::InstanceContext) -> Result<vk::SurfaceKHR, VulkanSurfaceCreateError>;
 
     /// Destroys the current surface.
     ///
@@ -56,7 +56,7 @@ pub trait VulkanSurfaceProvider: Send {
     ///
     /// # Safety
     /// All derived vulkan objects of the surface must have been destroyed.
-    unsafe fn destroy_surface(&self); // TODO add vulkan instance
+    unsafe fn destroy_surface(&self, instance: &crate::vulkan::InstanceContext);
 
     /// Returns the current surface.
     ///

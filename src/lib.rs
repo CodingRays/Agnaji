@@ -1,4 +1,6 @@
+pub mod vulkan;
 pub mod wsi;
+pub mod debug;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
