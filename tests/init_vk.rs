@@ -6,5 +6,5 @@ mod common;
 fn run_test() {
     common::pre_init();
 
-    agnaji::vulkan::AgnajiVulkan::new(true);
+    agnaji::vulkan::AgnajiVulkan::new(true, &[]);
 }

@@ -1,9 +1,36 @@
+use std::ffi::CString;
 use std::sync::Arc;
 use static_assertions::assert_impl_all;
 
 use ash::vk;
 
 use crate::wsi::*;
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub enum NativePlatform {
+    Windows,
+    Wayland,
+    Xlib,
+    Xcb,
+    Android,
+    Metal,
+    Headless,
+}
+
+impl NativePlatform {
+    pub fn required_instance_extensions(&self, extensions: &mut Vec<CString>) {
+        extensions.push(CString::from(ash::extensions::khr::Surface::name()));
+        match self {
+            NativePlatform::Windows => extensions.push(CString::from(ash::extensions::khr::Win32Surface::name())),
+            NativePlatform::Wayland => extensions.push(CString::from(ash::extensions::khr::WaylandSurface::name())),
+            NativePlatform::Xlib => extensions.push(CString::from(ash::extensions::khr::XlibSurface::name())),
+            NativePlatform::Xcb => extensions.push(CString::from(ash::extensions::khr::XcbSurface::name())),
+            NativePlatform::Android => extensions.push(CString::from(ash::extensions::khr::AndroidSurface::name())),
+            NativePlatform::Metal => extensions.push(CString::from(ash::extensions::ext::MetalSurface::name())),
+            NativePlatform::Headless => extensions.push(CString::from(ash::extensions::ext::HeadlessSurface::name())),
+        }
+    }
+}
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum VulkanSurfaceCreateError {
