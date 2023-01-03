@@ -6,6 +6,15 @@ pub struct CanvasSize {
     pub height: u32,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub enum VulkanSurfaceCreateError {
+    /// The surface provider is currently suspended.
+    Suspended,
+
+    /// A vulkan function did not return [`vk::Result::SUCCESS`]
+    VulkanError(vk::Result),
+}
+
 /// Provides a api to create and use vulkan surfaces associated with some canvas (for example a
 /// window).
 ///
@@ -19,13 +28,18 @@ pub struct CanvasSize {
 pub trait VulkanSurfaceProvider: Send {
 
     /// If this function returns true any surface must be destroyed as soon as possible and
-    /// attempting to create a new surface will fail.
+    /// attempting to create a new surface will fail with [`VulkanSurfaceCreateError::Suspended`].
     ///
     /// # Important
     /// Other external systems may be blocked until the surface has been destroyed so any code using
     /// the surface must always be able to call this function and destroy the surface without
     /// waiting on external systems.
     fn suspended(&self) -> bool;
+
+    /// Blocks and waits for the surface provider to become unsuspended.
+    ///
+    /// Any surface must be destroyed before calling this function otherwise this function panics.
+    fn wait_unsuspended(&self);
 
     /// Creates a new surface.
     ///
@@ -34,7 +48,7 @@ pub trait VulkanSurfaceProvider: Send {
     /// The created surface must be destroyed by a call to
     /// [`VulkanSurfaceProvider::destroy_surface`] before the surface provider is dropped. Otherwise
     /// the surface provider must panic during drop.
-    fn create_surface(&self); // TODO add vulkan instance
+    fn create_surface(&self) -> Result<vk::SurfaceKHR, VulkanSurfaceCreateError>; // TODO add vulkan instance
 
     /// Destroys the current surface.
     ///
@@ -47,7 +61,7 @@ pub trait VulkanSurfaceProvider: Send {
     /// Returns the current surface.
     ///
     /// If no current surface exists this function panics.
-    fn get_surface(&self) -> vk::Surface;
+    fn get_surface(&self) -> vk::SurfaceKHR;
 
     /// Returns the size of the canvas in pixels backing the surface (for example the window size)
     /// or [`None`] if that is currently undefined. If [`None`] is returned the renderer may not
