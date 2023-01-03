@@ -14,7 +14,7 @@ pub struct AgnajiVulkan {
 impl AgnajiVulkan {
     /// Creates a new render backend supporting the selected surface platforms.
     ///
-    /// If `native_platforms` is empty this is equivalent to calling [`AgnajiVulkan::new_headless`].
+    /// If `surface_platforms` is empty this is equivalent to calling [`AgnajiVulkan::new_headless`].
     pub fn new(enable_debug: bool, surface_platforms: &[surface::SurfacePlatform]) -> Self {
         if surface_platforms.is_empty() {
             Self::new_headless(enable_debug)
