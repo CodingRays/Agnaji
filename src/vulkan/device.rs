@@ -10,6 +10,14 @@ use crate::vulkan::instance::APIVersion;
 
 use crate::vulkan::InstanceContext;
 
+pub trait DeviceProvider {
+    fn get_device(&self) -> &ash::Device;
+}
+
+pub trait SwapchainProvider: DeviceProvider {
+    fn get_swapchain_khr(&self) -> Option<&ash::extensions::khr::Swapchain>;
+}
+
 pub struct DeviceQueue {
     queue: Mutex<vk::Queue>,
     queue_family: u32,
@@ -56,6 +64,18 @@ pub struct MainDeviceContext {
     main_queue: DeviceQueue,
     compute_queue: Option<DeviceQueue>,
     transfer_queue: Option<DeviceQueue>,
+}
+
+impl DeviceProvider for MainDeviceContext {
+    fn get_device(&self) -> &ash::Device {
+        &self.device
+    }
+}
+
+impl SwapchainProvider for MainDeviceContext {
+    fn get_swapchain_khr(&self) -> Option<&ash::extensions::khr::Swapchain> {
+        self.khr_swapchain.as_ref()
+    }
 }
 
 pub struct MainDeviceReport {

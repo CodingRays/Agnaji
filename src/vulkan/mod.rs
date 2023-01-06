@@ -3,6 +3,7 @@ pub mod instance;
 pub mod scene;
 pub mod surface;
 mod output;
+mod swapchain;
 
 use std::sync::{Arc, Weak};
 
@@ -14,6 +15,7 @@ use crate::scene::Scene;
 use crate::vulkan::device::{MainDeviceContext, MainDeviceReport};
 use crate::vulkan::output::SurfaceOutput;
 use crate::vulkan::scene::VulkanScene;
+use crate::vulkan::surface::VulkanSurfaceProvider;
 
 pub struct AgnajiVulkan {
     weak: Weak<Self>,
@@ -73,8 +75,8 @@ impl AgnajiVulkan {
         let main_device = device.create_device(self.instance.clone()).unwrap();
     }
 
-    pub fn create_surface_output(&self) -> Result<Arc<SurfaceOutput>, ()> {
-        todo!()
+    pub fn create_surface_output(&self, surface_provider: Box<dyn VulkanSurfaceProvider>) -> Result<Arc<SurfaceOutput>, ()> {
+        Ok(Arc::new(SurfaceOutput::new(self.weak.upgrade().unwrap(), surface_provider)))
     }
 
     /// Creates a new scene. See [`Agnaji::create_scene`] for more details.

@@ -135,6 +135,10 @@ impl<'a> Surface<'a> {
             drop_fn,
         }
     }
+
+    pub fn get_handle(&self) -> vk::SurfaceKHR {
+        self.surface
+    }
 }
 
 impl<'a> Drop for Surface<'a> {
