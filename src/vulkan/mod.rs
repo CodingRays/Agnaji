@@ -1,4 +1,6 @@
+pub mod device;
 pub mod instance;
+pub mod scene;
 pub mod surface;
 mod output;
 
@@ -7,8 +9,10 @@ use std::sync::{Arc, Weak};
 use crate::Agnaji;
 
 pub use instance::InstanceContext;
+
 use crate::scene::Scene;
 use crate::vulkan::output::SurfaceOutput;
+use crate::vulkan::scene::VulkanScene;
 
 pub struct AgnajiVulkan {
     weak: Weak<Self>,
@@ -59,10 +63,19 @@ impl AgnajiVulkan {
     pub fn create_surface_output(&self) -> Result<Arc<SurfaceOutput>, ()> {
         todo!()
     }
+
+    /// Creates a new scene. See [`Agnaji::create_scene`] for more details.
+    ///
+    /// This function is called internally when [`Agnaji::create_scene`] is called and is only
+    /// provided so that any caller doesnt have to cast the returned [`Scene`] if they need access
+    /// to the underlying [`VulkanScene`].
+    pub fn create_vulkan_scene(&self) -> Arc<VulkanScene> {
+        todo!()
+    }
 }
 
 impl Agnaji for AgnajiVulkan {
     fn create_scene(&self) -> Arc<dyn Scene> {
-        todo!()
+        self.create_vulkan_scene()
     }
 }
