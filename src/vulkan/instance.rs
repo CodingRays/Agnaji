@@ -148,6 +148,13 @@ impl InstanceContext {
             return Err(InstanceCreateError::MissingRequiredExtensions(missing_extensions));
         }
 
+        let ext_swapchain_color_space_name = CString::from(CStr::from_bytes_with_nul(b"VK_EXT_swapchain_colorspace\0").unwrap());
+        if enabled_extensions.contains(ash::extensions::khr::Surface::name()) {
+            if supported_extensions.contains(&ext_swapchain_color_space_name) {
+                enabled_extensions.insert(ext_swapchain_color_space_name);
+            }
+        }
+
         let khr_surface_enabled = enabled_extensions.contains(ash::extensions::khr::Surface::name());
         let ext_debug_utils = enabled_extensions.contains(ash::extensions::ext::DebugUtils::name());
         let enabled_extensions: Box<[_]> = enabled_extensions.into_iter().collect();
