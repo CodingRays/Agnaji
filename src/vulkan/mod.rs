@@ -11,6 +11,7 @@ use crate::Agnaji;
 pub use instance::InstanceContext;
 
 use crate::scene::Scene;
+use crate::vulkan::device::{MainDeviceContext, MainDeviceReport};
 use crate::vulkan::output::SurfaceOutput;
 use crate::vulkan::scene::VulkanScene;
 
@@ -57,7 +58,19 @@ impl AgnajiVulkan {
         })
     }
 
-    pub fn generate_main_device_report(&self) {
+    pub fn generate_main_device_report(&self) -> Box<[MainDeviceReport]> {
+        let physical_devices = unsafe { self.instance.get_instance().enumerate_physical_devices().unwrap() };
+
+        let mut device_reports = Vec::with_capacity(physical_devices.len());
+        for physical_device in physical_devices {
+            device_reports.push(MainDeviceReport::generate_for(&self.instance, physical_device).unwrap());
+        }
+
+        device_reports.into_boxed_slice()
+    }
+
+    pub fn set_main_device(&self, device: &MainDeviceReport) {
+        let main_device = device.create_device(self.instance.clone()).unwrap();
     }
 
     pub fn create_surface_output(&self) -> Result<Arc<SurfaceOutput>, ()> {

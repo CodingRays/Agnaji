@@ -114,6 +114,11 @@ impl InstanceContext {
             return Err(InstanceCreateError::UnsupportedVersion(version));
         }
 
+        if version.get_minor() < 2 {
+            log::error!("Vulkan instance has minor version < 2 which is unsupported");
+            return Err(InstanceCreateError::UnsupportedVersion(version));
+        }
+
         // Check extension support
         let supported_extensions: HashSet<_> = entry.enumerate_instance_extension_properties(None).map_err(|err| {
             log::error!("Failed to enumerate instance extension properties: {:?}", err);
@@ -165,8 +170,15 @@ impl InstanceContext {
         }
         let enabled_layers_ptr: Vec<_> = enabled_layers.iter().map(|l| l.as_ptr()).collect();
 
+        let application_info = vk::ApplicationInfo::builder()
+            .api_version(vk::API_VERSION_1_3)
+            .application_version(1)
+            .engine_name(CStr::from_bytes_with_nul(b"Agnaji\0").unwrap())
+            .application_name(CStr::from_bytes_with_nul(b"Test\0").unwrap());
+
         // Create vulkan instance
         let mut instance_create_info = vk::InstanceCreateInfo::builder()
+            .application_info(&application_info)
             .enabled_layer_names(&enabled_layers_ptr)
             .enabled_extension_names(&enabled_extensions_ptr);
 

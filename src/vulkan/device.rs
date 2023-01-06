@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::ffi::{CStr, CString};
+use std::fmt::Formatter;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use ash::vk;
@@ -31,6 +32,7 @@ impl DeviceQueue {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum DeviceCreateError {
     NotSupported,
     Vulkan(vk::Result),
@@ -67,7 +69,7 @@ pub struct MainDeviceReport {
 }
 
 impl MainDeviceReport {
-    pub fn generate_for(&self, instance: &InstanceContext, physical_device: vk::PhysicalDevice) -> Result<Self, vk::Result> {
+    pub fn generate_for(instance: &InstanceContext, physical_device: vk::PhysicalDevice) -> Result<Self, vk::Result> {
         let khr_surface = instance.get_khr_surface();
         let instance = instance.get_instance();
 
@@ -87,8 +89,8 @@ impl MainDeviceReport {
         if api_version.get_major() != 1 {
             errors.push(String::from("Device API major version is not 1"));
         }
-        if api_version.get_minor() < 1 {
-            errors.push(String::from("Device API minor version is less than 1"));
+        if api_version.get_minor() < 2 {
+            errors.push(String::from("Device API minor version is less than 2"));
         }
 
         // If we get api version errors we cannot proceed to process it
@@ -542,6 +544,18 @@ impl MainDeviceReport {
             warnings.push(String::from("Extension VK_KHR_maintenance4 is not supported"));
             None
         }
+    }
+}
+
+impl std::fmt::Debug for MainDeviceReport {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MainDeviceReport")
+            .field("device_name", &self.name)
+            .field("api_version", &self.api_version)
+            .field("suitable", &self.is_suitable())
+            .field("warnings", &self.warnings.as_ref())
+            .field("errors", &self.errors.as_ref())
+            .finish()
     }
 }
 
