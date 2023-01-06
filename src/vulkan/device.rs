@@ -148,6 +148,9 @@ impl MainDeviceReport {
         let mut khr_maintenance_4_features_properties = supported_extensions.get(ash::extensions::khr::Maintenance4::name()).map(|_| {
             (vk::PhysicalDeviceMaintenance4FeaturesKHR::builder(), vk::PhysicalDeviceMaintenance4PropertiesKHR::builder())
         });
+        let mut khr_portability_subset_features_properties = supported_extensions.get(CStr::from_bytes_with_nul(b"VK_KHR_portability_subset\0").unwrap()).map(|_| {
+            (vk::PhysicalDevicePortabilitySubsetFeaturesKHR::builder(), vk::PhysicalDevicePortabilitySubsetPropertiesKHR::builder())
+        });
 
         let mut features2 = vk::PhysicalDeviceFeatures2::builder()
             .push_next(&mut vk_11_features);
@@ -168,6 +171,10 @@ impl MainDeviceReport {
             features2 = features2.push_next(f);
             properties2 = properties2.push_next(p);
         }
+        if let Some((f, p)) = &mut khr_portability_subset_features_properties {
+            features2 = features2.push_next(f);
+            properties2 = properties2.push_next(p);
+        }
 
         unsafe {
             instance.get_physical_device_features2(physical_device, &mut features2);
@@ -185,6 +192,7 @@ impl MainDeviceReport {
         let khr_synchronization_2 = Self::process_khr_synchronization_2(&mut warnings, &mut errors, khr_synchronization_2_features.as_ref());
         let khr_timeline_semaphore = Self::process_khr_timeline_semaphore(&mut warnings, &mut errors, khr_timeline_semaphore_features_properties.as_ref());
         let khr_maintenance_4 = Self::process_khr_maintenance_4(&mut warnings, &mut errors, khr_maintenance_4_features_properties.as_ref());
+        let khr_portability_subset = Self::process_khr_portability_subset(&mut warnings, &mut errors, khr_portability_subset_features_properties.as_ref());
 
         let queue_properties = unsafe {
             instance.get_physical_device_queue_family_properties(physical_device)
@@ -230,7 +238,7 @@ impl MainDeviceReport {
                 }
             }
         } else {
-            errors.push(String::from("Failed to find queue with GRAPHICS, COMPUTE and TRANSFER capabilities"));
+            errors.push(String::from("Failed to find queue with `GRAPHICS`, `COMPUTE` and `TRANSFER` capabilities"));
         }
         if compute_queue.is_none() {
             warnings.push(String::from("No suitable dedicated compute queue"));
@@ -252,6 +260,9 @@ impl MainDeviceReport {
         if khr_maintenance_4.is_some() {
             enabled_extensions.insert(CString::from(ash::extensions::khr::Maintenance4::name()));
         }
+        if khr_portability_subset.is_some() {
+            enabled_extensions.insert(CString::from(CStr::from_bytes_with_nul(b"VK_KHR_portability_subset\0").unwrap()));
+        }
         if supported_extensions.contains(ash::extensions::khr::Swapchain::name()) && khr_surface.is_some() {
             enabled_extensions.insert(CString::from(ash::extensions::khr::Swapchain::name()));
         }
@@ -264,6 +275,7 @@ impl MainDeviceReport {
                 khr_synchronization_2: khr_synchronization_2.unwrap(),
                 khr_timeline_semaphore: khr_timeline_semaphore.unwrap(),
                 khr_maintenance_4,
+                khr_portability_subset,
             };
 
             Some(MainDeviceConfig {
@@ -340,6 +352,12 @@ impl MainDeviceReport {
 
             let mut khr_maintenance_4_features = config.features.khr_maintenance_4.clone();
             if let Some(f) = &mut khr_maintenance_4_features {
+                f.p_next = std::ptr::null_mut();
+                create_info = create_info.push_next(f);
+            }
+
+            let mut khr_portability_subset_features = config.features.khr_portability_subset.clone();
+            if let Some(f) = &mut khr_portability_subset_features {
                 f.p_next = std::ptr::null_mut();
                 create_info = create_info.push_next(f);
             }
@@ -421,31 +439,31 @@ impl MainDeviceReport {
         if features.independent_blend == vk::TRUE {
             enabled.independent_blend = vk::TRUE;
         } else {
-            errors.push(String::from("Feature independent_blend is not supported"));
+            errors.push(String::from("Feature `independent_blend` is not supported"));
         }
 
         if features.dual_src_blend == vk::TRUE {
             enabled.dual_src_blend = vk::TRUE;
         } else {
-            errors.push(String::from("Feature dual_src_blend is not supported"));
+            errors.push(String::from("Feature `dual_src_blend` is not supported"));
         }
 
         if features.sampler_anisotropy == vk::TRUE {
             enabled.sampler_anisotropy = vk::TRUE;
         } else {
-            warnings.push(String::from("Feature sampler_anisotropy is not supported"));
+            warnings.push(String::from("Feature `sampler_anisotropy` is not supported"));
         }
 
         if features.fragment_stores_and_atomics == vk::TRUE {
             enabled.fragment_stores_and_atomics = vk::TRUE;
         } else {
-            errors.push(String::from("Feature fragment_stores_and_atomics is not supported"));
+            errors.push(String::from("Feature `fragment_stores_and_atomics` is not supported"));
         }
 
         if features.shader_int64 == vk::TRUE {
             enabled.shader_int64 = vk::TRUE;
         } else {
-            errors.push(String::from("Feature shader_int64 is not supported"));
+            errors.push(String::from("Feature `shader_int64` is not supported"));
         }
 
         enabled.build()
@@ -457,13 +475,13 @@ impl MainDeviceReport {
         if features.variable_pointers_storage_buffer == vk::TRUE {
             enabled.variable_pointers_storage_buffer = vk::TRUE;
         } else {
-            errors.push(String::from("Feature variable_pointers_storage_buffer is not supported"));
+            errors.push(String::from("Feature `variable_pointers_storage_buffer` is not supported"));
         }
 
         if features.variable_pointers == vk::TRUE {
             enabled.variable_pointers = vk::TRUE;
         } else {
-            errors.push(String::from("Feature variable_pointers is not supported"));
+            errors.push(String::from("Feature `variable_pointers` is not supported"));
         }
 
         enabled.build()
@@ -477,7 +495,7 @@ impl MainDeviceReport {
             if f.buffer_device_address == vk::TRUE {
                 enabled.buffer_device_address = vk::TRUE;
             } else {
-                errors.push(String::from("Feature buffer_device_address is not supported"));
+                errors.push(String::from("Feature `buffer_device_address` is not supported"));
                 ok = false;
             }
 
@@ -487,7 +505,7 @@ impl MainDeviceReport {
                 None
             }
         } else {
-            errors.push(String::from("Extension VK_KHR_buffer_device_address is not supported"));
+            errors.push(String::from("Extension `VK_KHR_buffer_device_address` is not supported"));
             None
         }
     }
@@ -500,7 +518,7 @@ impl MainDeviceReport {
             if f.synchronization2 == vk::TRUE {
                 enabled.synchronization2 = vk::TRUE;
             } else {
-                errors.push(String::from("Feature synchronization2 is not supported"));
+                errors.push(String::from("Feature `synchronization2` is not supported"));
                 ok = false;
             }
 
@@ -510,7 +528,7 @@ impl MainDeviceReport {
                 None
             }
         } else {
-            errors.push(String::from("Extension VK_KHR_synchronization2 is not supported"));
+            errors.push(String::from("Extension `VK_KHR_synchronization2` is not supported"));
             None
         }
     }
@@ -523,12 +541,12 @@ impl MainDeviceReport {
             if f.timeline_semaphore == vk::TRUE {
                 enabled.timeline_semaphore = vk::TRUE;
             } else {
-                errors.push(String::from("Feature timeline_semaphore is not supported"));
+                errors.push(String::from("Feature `timeline_semaphore` is not supported"));
                 ok = false;
             }
 
             if p.max_timeline_semaphore_value_difference < (1u64 << 16) {
-                errors.push(String::from("Limit max_timeline_semaphore_value_difference is lower than 2^16"));
+                errors.push(String::from("Limit `max_timeline_semaphore_value_difference` is lower than 2^16"));
                 ok = false;
             }
 
@@ -538,7 +556,7 @@ impl MainDeviceReport {
                 None
             }
         } else {
-            errors.push(String::from("Extension VK_KHR_timeline_semaphore is not supported"));
+            errors.push(String::from("Extension `VK_KHR_timeline_semaphore` is not supported"));
             None
         }
     }
@@ -551,7 +569,7 @@ impl MainDeviceReport {
             if f.maintenance4 == vk::TRUE {
                 enabled.maintenance4 = vk::TRUE;
             } else {
-                warnings.push(String::from("Feature maintenance4 is not supported"));
+                warnings.push(String::from("Feature `maintenance4` is not supported"));
                 ok = false;
             }
 
@@ -561,7 +579,36 @@ impl MainDeviceReport {
                 None
             }
         } else {
-            warnings.push(String::from("Extension VK_KHR_maintenance4 is not supported"));
+            warnings.push(String::from("Extension `VK_KHR_maintenance4` is not supported"));
+            None
+        }
+    }
+
+    fn process_khr_portability_subset(_warnings: &mut Vec<String>, errors: &mut Vec<String>, ext: Option<&(vk::PhysicalDevicePortabilitySubsetFeaturesKHRBuilder, vk::PhysicalDevicePortabilitySubsetPropertiesKHRBuilder)>) -> Option<vk::PhysicalDevicePortabilitySubsetFeaturesKHR> {
+        if let Some((f, _p)) = ext {
+            let mut ok = true;
+            let mut enabled = vk::PhysicalDevicePortabilitySubsetFeaturesKHR::builder();
+
+            if f.constant_alpha_color_blend_factors == vk::TRUE {
+                enabled.constant_alpha_color_blend_factors = vk::TRUE;
+            } else {
+                errors.push(String::from("Portability subset feature `constant_alpha_color_blend_factors` is not supported"));
+                ok = false;
+            }
+
+            if f.events == vk::TRUE {
+                enabled.events = vk::TRUE;
+            } else {
+                errors.push(String::from("Portability subset feature `events` is not supported"));
+                ok = false;
+            }
+
+            if ok {
+                Some(enabled.build())
+            } else {
+                None
+            }
+        } else {
             None
         }
     }
@@ -594,4 +641,5 @@ struct MainDeviceFeatures {
     khr_synchronization_2: vk::PhysicalDeviceSynchronization2FeaturesKHR,
     khr_timeline_semaphore: vk::PhysicalDeviceTimelineSemaphoreFeaturesKHR,
     khr_maintenance_4: Option<vk::PhysicalDeviceMaintenance4FeaturesKHR>,
+    khr_portability_subset: Option<vk::PhysicalDevicePortabilitySubsetFeaturesKHR>,
 }
