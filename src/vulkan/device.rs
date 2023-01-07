@@ -11,6 +11,10 @@ use crate::vulkan::instance::APIVersion;
 use crate::vulkan::InstanceContext;
 
 pub trait DeviceProvider {
+    fn get_instance(&self) -> &InstanceContext;
+
+    fn get_physical_device(&self) -> vk::PhysicalDevice;
+
     fn get_device(&self) -> &ash::Device;
 }
 
@@ -54,6 +58,7 @@ impl From<vk::Result> for DeviceCreateError {
 
 pub struct MainDeviceContext {
     instance: Arc<InstanceContext>,
+    physical_device: vk::PhysicalDevice,
     device: ash::Device,
     khr_buffer_device_address: ash::extensions::khr::BufferDeviceAddress,
     khr_synchronization_2: ash::extensions::khr::Synchronization2,
@@ -67,6 +72,14 @@ pub struct MainDeviceContext {
 }
 
 impl DeviceProvider for MainDeviceContext {
+    fn get_instance(&self) -> &InstanceContext {
+        &self.instance
+    }
+
+    fn get_physical_device(&self) -> vk::PhysicalDevice {
+        self.physical_device
+    }
+
     fn get_device(&self) -> &ash::Device {
         &self.device
     }
@@ -389,6 +402,7 @@ impl MainDeviceReport {
 
             Ok(MainDeviceContext {
                 instance,
+                physical_device: self.physical_device,
                 device,
                 khr_buffer_device_address,
                 khr_synchronization_2,
