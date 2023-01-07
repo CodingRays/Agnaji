@@ -139,11 +139,8 @@ mod surface {
                 let name = self.share.name.clone();
                 let instance = self.share.agnaji.instance.clone();
                 match self.surface_provider.create_surface(&instance) {
-                    Ok((surface, drop_fn)) => {
-                        let surface = Surface::new(instance, surface, drop_fn);
-                        err_repeat = 0;
-                        self.run_surface_loop(surface.get_handle());
-                        drop(surface);
+                    Ok(surface) => {
+                        std::thread::yield_now();
                     }
                     Err(err) => {
                         if err_repeat <= 2 {
@@ -156,7 +153,7 @@ mod surface {
                         }
                         err_repeat += 1;
                     }
-                }
+                };
             }
         }
 
@@ -213,5 +210,4 @@ mod surface {
     }
 }
 
-use std::fmt::Formatter;
 pub use surface::SurfaceOutput;

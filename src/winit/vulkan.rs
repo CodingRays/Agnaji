@@ -2,16 +2,24 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use ash::vk;
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use crate::vulkan::InstanceContext;
-use crate::vulkan::surface::{VulkanSurfaceCreateError, VulkanSurfaceProvider};
-use crate::winit::window::Window;
+use crate::vulkan::surface::{Surface, VulkanSurfaceCreateError, VulkanSurfaceProvider};
+use crate::winit::window::{SurfaceBuildError, Window};
 
 use crate::prelude::*;
 
 pub struct WinitVulkanSurfaceProvider {
     window: Arc<Window>,
-    has_surface: AtomicBool,
+}
+
+impl WinitVulkanSurfaceProvider {
+    pub(in crate::winit) fn new(window: Arc<Window>) -> Self {
+        Self {
+            window,
+        }
+    }
 }
 
 impl VulkanSurfaceProvider for WinitVulkanSurfaceProvider {
@@ -20,39 +28,26 @@ impl VulkanSurfaceProvider for WinitVulkanSurfaceProvider {
     }
 
     fn wait_unsuspended(&self) {
-        if self.has_surface.load(Ordering::SeqCst) {
-            panic!("Called wait_unsuspended while surface exists");
-        }
         self.window.get_backend().wait_resumed()
     }
 
-    fn create_surface<'a>(&'a self, instance: &InstanceContext) -> Result<(vk::SurfaceKHR, Box<dyn FnOnce() + Send + 'a>), VulkanSurfaceCreateError> {
-        if self.has_surface.load(Ordering::SeqCst) {
-            panic!("Called create_surface while surface exists");
-        }
-
-        let mut surface = Err(VulkanSurfaceCreateError::Suspended);
-        self.window.get_backend().with_client_api_guard_inc(|suspended| {
-            if !suspended {
-                surface = Ok(vk::SurfaceKHR::null());
-                true
-            } else {
-                surface = Err(VulkanSurfaceCreateError::Suspended);
-                false
+    fn create_surface<'a, 'b>(&'a self, instance: &'b InstanceContext) -> Result<Surface<'a, 'b>, VulkanSurfaceCreateError> {
+        let (guard, surface) = self.window.try_build_surface(|window| {
+            unsafe {
+                ash_window::create_surface(instance.get_entry(), instance.get_instance(), window.raw_display_handle(), window.raw_window_handle(), None)
+            }.map_err(|err| {
+                log::error!("Failed to create vulkan surface for window: {:?}", err);
+                VulkanSurfaceCreateError::VulkanError(err)
+            })
+        }).map_err(|err| {
+            match err {
+                SurfaceBuildError::SurfaceAlreadyExists => VulkanSurfaceCreateError::SurfaceAlreadyExists,
+                SurfaceBuildError::Suspended => VulkanSurfaceCreateError::Suspended,
+                SurfaceBuildError::BuildError(err) => err,
             }
-        });
+        })?;
 
-        match surface {
-            Ok(surface) => {
-                Ok((surface, Box::new(|| {
-                    self.window.get_backend().dec_client_api_count();
-                    self.has_surface.store(false, Ordering::SeqCst);
-                })))
-            },
-            Err(err) => {
-                Err(err)
-            }
-        }
+        Ok(Surface::new(instance, surface, Box::new(guard)))
     }
 
     fn get_canvas_size(&self) -> Option<Vec2u32> {

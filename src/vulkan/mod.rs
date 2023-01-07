@@ -2,7 +2,7 @@ pub mod device;
 pub mod instance;
 pub mod scene;
 pub mod surface;
-mod output;
+pub mod output;
 mod swapchain;
 pub mod init;
 

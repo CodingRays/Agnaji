@@ -9,8 +9,9 @@ use static_assertions::assert_impl_all;
 use winit::event_loop::EventLoopProxy;
 
 use crate::prelude::*;
-use crate::winit::window::Window;
 use crate::winit::worker::WindowChannel;
+
+pub use crate::winit::window::Window;
 
 const DEFAULT_LOG_TARGET: &'static str = "agnaji::winit";
 
@@ -105,7 +106,7 @@ impl WinitBackend {
     ///
     /// Note: Extra care must be taken to ensure the function will not panic as that would cause
     /// the client api count mutex to be poisoned.
-    fn with_client_api_guard_inc<F>(&self, f: F) where F: FnOnce(bool) -> bool {
+    fn with_surface_count_guard_inc<F>(&self, f: F) where F: FnOnce(bool) -> bool {
         let mut guard = self.client_api_count.lock().unwrap();
         if f(self.suspended_state.load(Ordering::SeqCst)) {
             *guard += 1;
@@ -114,7 +115,7 @@ impl WinitBackend {
     }
 
     /// Decrements the client api count and notifies the loop wait condvar once it reaches 0.
-    fn dec_client_api_count(&self) {
+    fn dec_surface_count(&self) {
         let mut guard = self.client_api_count.lock().unwrap();
         *guard -= 1;
         if *guard == 0 {

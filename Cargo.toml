@@ -13,6 +13,9 @@ ash = "0.37.1"
 log = "0.4.17"
 nalgebra = "0.31.4"
 static_assertions = "1.1.0"
+
+ash-window = { version = "0.12.0", optional = true }
+raw-window-handle = { version = "0.5.0", optional = true }
 winit = { version = "0.27.5", optional = true }
 
 [dev-dependencies]
@@ -21,4 +24,4 @@ pretty_env_logger = "0.4.0"
 [[example]]
 name = "cube"
 crate-type = ["bin"]
-required-features = ["winit"]
+required-features = ["ash-window", "raw-window-handle", "winit"]

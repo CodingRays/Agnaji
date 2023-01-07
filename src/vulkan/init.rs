@@ -110,8 +110,7 @@ impl AgnajiVulkanInitializer {
                 let khr_surface = self.instance.get_khr_surface().unwrap();
 
                 for (_, registered) in surfaces.iter() {
-                    let (surface, drop_fn) = registered.surface_provider.create_surface(&self.instance)?;
-                    let surface = Surface::new(self.instance.clone(), surface, drop_fn);
+                    let surface = registered.surface_provider.create_surface(&self.instance)?;
 
                     let handle = surface.get_handle();
                     for i in 0..queue_count {
