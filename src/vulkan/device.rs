@@ -102,7 +102,7 @@ pub struct MainDeviceReport {
 }
 
 impl MainDeviceReport {
-    pub fn generate_for(instance: &InstanceContext, physical_device: vk::PhysicalDevice) -> Result<Self, vk::Result> {
+    pub fn generate_for(instance: &InstanceContext, physical_device: vk::PhysicalDevice, surface_support: &[bool]) -> Result<Self, vk::Result> {
         let khr_surface = instance.get_khr_surface();
         let instance = instance.get_instance();
 
@@ -216,7 +216,7 @@ impl MainDeviceReport {
         let mut transfer_queue = None;
 
         for (index, properties) in queue_properties.iter().enumerate() {
-            if properties.queue_flags.contains(vk::QueueFlags::GRAPHICS | vk::QueueFlags::COMPUTE | vk::QueueFlags::TRANSFER) {
+            if properties.queue_flags.contains(vk::QueueFlags::GRAPHICS | vk::QueueFlags::COMPUTE | vk::QueueFlags::TRANSFER) && surface_support[index] {
                 main_queue = Some(index as u32);
                 break;
             }
@@ -229,7 +229,7 @@ impl MainDeviceReport {
                 }
 
                 if properties.queue_flags.contains(vk::QueueFlags::COMPUTE | vk::QueueFlags::TRANSFER) {
-                    compute_queue = Some((index, false));
+                    compute_queue = Some((index, surface_support[index as usize]));
                     break;
                 }
             }
@@ -243,9 +243,9 @@ impl MainDeviceReport {
                 if properties.queue_flags.contains(vk::QueueFlags::TRANSFER) {
                     let g = properties.min_image_transfer_granularity;
                     if g.width == 1 && g.height == 1 && g.depth == 1 {
-                        transfer_queue = Some((index, false, None));
+                        transfer_queue = Some((index, surface_support[index as usize], None));
                     } else {
-                        transfer_queue = Some((index, false, Some(g)));
+                        transfer_queue = Some((index, surface_support[index as usize], Some(g)));
                     }
                     break;
                 }

@@ -4,14 +4,8 @@ use std::num::NonZeroU64;
 use std::sync::Arc;
 use crate::utils::define_counting_id_type;
 
-define_counting_id_type!(SceneId);
-define_counting_id_type!(ComponentId);
-
-impl std::fmt::Debug for SceneId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("SceneId").field(&self.value).finish()
-    }
-}
+define_counting_id_type!(pub, SceneId);
+define_counting_id_type!(pub, ComponentId);
 
 /// A scene is a collection of components defining a world to be rendered. [`SceneComponent`]s are
 /// organized into a hierarchy which is called the scene graph.

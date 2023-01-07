@@ -10,16 +10,12 @@ mod surface {
     use crate::scene::CameraComponent;
     use crate::vulkan::AgnajiVulkan;
     use crate::vulkan::device::{DeviceProvider, SwapchainProvider};
-    use crate::vulkan::surface::VulkanSurfaceProvider;
+    use crate::vulkan::surface::{Surface, VulkanSurfaceProvider};
 
 
     pub struct ColorSpaceFormats {
         color_space: vk::ColorSpaceKHR,
         formats: HashSet<vk::Format>,
-    }
-
-    pub enum SurfaceOutputCreateError {
-        SurfaceUnsupported,
     }
 
     pub type FormatSelectionFn = dyn Fn(&[ColorSpaceFormats]) -> (vk::ColorSpaceKHR, vk::Format) + Send;
@@ -30,12 +26,12 @@ mod surface {
     }
 
     impl SurfaceOutput {
-        pub(in crate::vulkan) fn new(agnaji: Arc<AgnajiVulkan>, surface_provider: Box<dyn VulkanSurfaceProvider>) -> Self {
-            let share = Arc::new(Share::new(agnaji));
+        pub(in crate::vulkan) fn new(agnaji: Arc<AgnajiVulkan>, surface_provider: Box<dyn VulkanSurfaceProvider>, name: Option<String>) -> Self {
+            let share = Arc::new(Share::new(agnaji, name));
 
             let share_clone = share.clone();
             let worker = std::thread::spawn(move || {
-                todo!()
+                SurfaceOutputWorker::run(share_clone, todo!(), surface_provider);
             });
 
             Self {
@@ -81,15 +77,17 @@ mod surface {
 
     struct Share {
         agnaji: Arc<AgnajiVulkan>,
+        name: Option<String>,
         destroy: AtomicBool,
 
         guarded: Mutex<ShareGuarded>,
     }
 
     impl Share {
-        fn new(agnaji: Arc<AgnajiVulkan>) -> Self {
+        fn new(agnaji: Arc<AgnajiVulkan>, name: Option<String>) -> Self {
             Self {
                 agnaji,
+                name,
                 destroy: AtomicBool::new(false),
 
                 guarded: Mutex::new(ShareGuarded {
@@ -138,8 +136,11 @@ mod surface {
                     err_repeat = 0;
                 }
 
-                match self.surface_provider.create_surface(self.share.agnaji.instance.clone()) {
-                    Ok(surface) => {
+                let name = self.share.name.clone();
+                let instance = self.share.agnaji.instance.clone();
+                match self.surface_provider.create_surface(&instance) {
+                    Ok((surface, drop_fn)) => {
+                        let surface = Surface::new(instance, surface, drop_fn);
                         err_repeat = 0;
                         self.run_surface_loop(surface.get_handle());
                         drop(surface);
@@ -160,6 +161,8 @@ mod surface {
         }
 
         fn run_surface_loop(&self, surface: vk::SurfaceKHR) {
+            // todo check surface present support
+
             let supported_formats = match self.get_supported_surface_formats(surface) {
                 Ok(v) => v,
                 Err(err) => {
@@ -210,5 +213,5 @@ mod surface {
     }
 }
 
-pub use surface::SurfaceOutputCreateError;
+use std::fmt::Formatter;
 pub use surface::SurfaceOutput;
