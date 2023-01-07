@@ -5,7 +5,7 @@ use ash::vk;
 use static_assertions::assert_impl_all;
 use crate::utils::define_counting_id_type;
 
-use crate::wsi::*;
+use crate::prelude::*;
 
 define_counting_id_type!(pub, SurfaceProviderId);
 
@@ -69,20 +69,23 @@ pub trait VulkanSurfaceProvider: Send {
 
     /// Blocks and waits for the surface provider to become unsuspended.
     ///
+    /// # Panics
     /// Any surface must be destroyed before calling this function otherwise this function panics.
     fn wait_unsuspended(&self);
 
     /// Creates a new surface.
     ///
+    /// # Panics
     /// If a surface already exists this function panics.
+    ///
+    /// # Safety
+    /// The returned function *must* be called after the surface has been destroyed.
     fn create_surface<'a>(&'a self, instance: &crate::vulkan::InstanceContext) -> Result<(vk::SurfaceKHR, Box<dyn FnOnce() + Send + 'a>), VulkanSurfaceCreateError>;
 
     /// Returns the size of the canvas in pixels backing the surface (for example the window size)
     /// or [`None`] if that is currently undefined. If [`None`] is returned the renderer may not
     /// be able to create a swapchain so during normal use this function should return a valid size.
-    fn get_canvas_size(&self) -> Option<CanvasSize>;
-
-    fn get_name(&self) -> &str;
+    fn get_canvas_size(&self) -> Option<Vec2u32>;
 }
 
 /// Safe wrapper to allow a [`Send`] only [`FnOnce`] that is called on drop to be used in a [`Sync`]

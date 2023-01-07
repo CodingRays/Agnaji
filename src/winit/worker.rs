@@ -11,7 +11,7 @@ use crate::prelude::Vec2u32;
 use crate::winit::{AgnajiEvent, DEFAULT_LOG_TARGET, WinitBackend};
 use crate::winit::window::Window;
 
-const EVENT_LOOP_LOG_TARGET: &'static str = "agnaji::winit::EventLoop";
+pub(in crate::winit) const EVENT_LOOP_LOG_TARGET: &'static str = "agnaji::winit::EventLoop";
 
 pub(in crate::winit) fn run<F>(post_init: F) where F: FnOnce(Arc<WinitBackend>) + Send + UnwindSafe + 'static {
     let event_loop: EventLoop<AgnajiEvent> = EventLoopBuilder::with_user_event().build();
@@ -43,12 +43,16 @@ pub(in crate::winit) fn run<F>(post_init: F) where F: FnOnce(Arc<WinitBackend>) 
             Event::NewEvents(_) => {}
             Event::WindowEvent { window_id, event } => {
                 match event {
-                    WindowEvent::Resized(_) => {}
+                    WindowEvent::Resized(new_size) => {
+                        if let Some(window) = window_table.get(&window_id).map(Weak::upgrade).flatten() {
+                            window.on_resize(Vec2u32::new(new_size.width, new_size.height));
+                        }
+                    }
                     WindowEvent::Moved(_) => {}
                     WindowEvent::CloseRequested => {
                         log::debug!(target: EVENT_LOOP_LOG_TARGET, "Window {:?} close requested", &window_id);
                         if let Some(window) = window_table.get(&window_id).map(Weak::upgrade).flatten() {
-                            window.signal_close_requested();
+                            window.on_close_requested();
                         }
                     }
                     WindowEvent::Destroyed => {
@@ -99,7 +103,7 @@ pub(in crate::winit) fn run<F>(post_init: F) where F: FnOnce(Arc<WinitBackend>) 
                                 let window_id = window.id();
                                 log::debug!(target: EVENT_LOOP_LOG_TARGET, "Window creation successful. Id: {:?}", window_id);
 
-                                let window = Arc::new(Window::new(window, size));
+                                let window = Arc::new(Window::new(backend.clone(), window, size));
                                 window_table.insert(window_id, Arc::downgrade(&window));
 
                                 backend.window_channel.push(id, Ok(window));
@@ -112,12 +116,18 @@ pub(in crate::winit) fn run<F>(post_init: F) where F: FnOnce(Arc<WinitBackend>) 
                     }
                     AgnajiEvent::Quit => {
                         *control_flow = ControlFlow::ExitWithCode(0);
-                        log::debug!(target: EVENT_LOOP_LOG_TARGET,"Received quit order");
+                        log::debug!(target: EVENT_LOOP_LOG_TARGET, "Received quit order");
                     }
                 }
             }
-            Event::Suspended => {}
-            Event::Resumed => {}
+            Event::Suspended => {
+                log::debug!(target: EVENT_LOOP_LOG_TARGET, "Received suspended event");
+                backend.event_loop_signal_suspended();
+            }
+            Event::Resumed => {
+                log::debug!(target: EVENT_LOOP_LOG_TARGET, "Received resumed event");
+                backend.event_loop_signal_resumed();
+            }
             Event::MainEventsCleared => {}
             Event::RedrawRequested(_) => {}
             Event::RedrawEventsCleared => {}
