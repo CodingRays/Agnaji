@@ -8,9 +8,10 @@ use winit::event::VirtualKeyCode::M;
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{WindowBuilder, WindowId};
 use crate::prelude::Vec2u32;
-use crate::winit::{AgnajiEvent, WinitBackend};
+use crate::winit::{AgnajiEvent, DEFAULT_LOG_TARGET, WinitBackend};
 use crate::winit::window::Window;
 
+const EVENT_LOOP_LOG_TARGET: &'static str = "agnaji::winit::EventLoop";
 
 pub(in crate::winit) fn run<F>(post_init: F) where F: FnOnce(Arc<WinitBackend>) + Send + UnwindSafe + 'static {
     let event_loop: EventLoop<AgnajiEvent> = EventLoopBuilder::with_user_event().build();
@@ -21,21 +22,23 @@ pub(in crate::winit) fn run<F>(post_init: F) where F: FnOnce(Arc<WinitBackend>) 
 
     let backend_clone = backend.clone();
     let mut engine_thread = Some(std::thread::spawn(move || {
+        log::debug!(target: EVENT_LOOP_LOG_TARGET, "Starting main application thread");
         let backend = backend_clone.clone();
         if let Err(_) = catch_unwind(move || {
             post_init(backend_clone)
         }) {
-            log::error!("Main application thread panicked. Quitting winit backend");
+            log::error!(target: EVENT_LOOP_LOG_TARGET, "Main application thread panicked. Quitting winit backend");
         };
         backend.quit();
     }));
 
     let mut window_table: HashMap<WindowId, Weak<Window>> = HashMap::new();
 
+    log::debug!(target: EVENT_LOOP_LOG_TARGET, "Starting winit event loop");
     event_loop.run(move |event, window_target, control_flow| {
         *control_flow = ControlFlow::Wait;
 
-        log::trace!("Winit event: {:?}", event);
+        log::trace!(target: EVENT_LOOP_LOG_TARGET, "Processing winit event: {:?}", event);
         match event {
             Event::NewEvents(_) => {}
             Event::WindowEvent { window_id, event } => {
@@ -43,11 +46,13 @@ pub(in crate::winit) fn run<F>(post_init: F) where F: FnOnce(Arc<WinitBackend>) 
                     WindowEvent::Resized(_) => {}
                     WindowEvent::Moved(_) => {}
                     WindowEvent::CloseRequested => {
+                        log::debug!(target: EVENT_LOOP_LOG_TARGET, "Window {:?} close requested", &window_id);
                         if let Some(window) = window_table.get(&window_id).map(Weak::upgrade).flatten() {
                             window.signal_close_requested();
                         }
                     }
                     WindowEvent::Destroyed => {
+                        log::debug!(target: EVENT_LOOP_LOG_TARGET, "Window {:?} destroyed", &window_id);
                         window_table.remove(&window_id);
                     }
                     WindowEvent::DroppedFile(_) => {}
@@ -77,6 +82,7 @@ pub(in crate::winit) fn run<F>(post_init: F) where F: FnOnce(Arc<WinitBackend>) 
                     AgnajiEvent::CreateWindow {
                         id, title, initial_size
                     } => {
+                        log::debug!(target: EVENT_LOOP_LOG_TARGET, "Received create window request: {:?} size: {:?} (RequestID: {})", title, initial_size, id);
                         let size = if let Some(initial_size) = initial_size {
                             initial_size
                         } else {
@@ -91,18 +97,22 @@ pub(in crate::winit) fn run<F>(post_init: F) where F: FnOnce(Arc<WinitBackend>) 
                         match window {
                             Ok(window) => {
                                 let window_id = window.id();
+                                log::debug!(target: EVENT_LOOP_LOG_TARGET, "Window creation successful. Id: {:?}", window_id);
+
                                 let window = Arc::new(Window::new(window, size));
                                 window_table.insert(window_id, Arc::downgrade(&window));
 
                                 backend.window_channel.push(id, Ok(window));
                             },
                             Err(error) => {
+                                log::error!(target: EVENT_LOOP_LOG_TARGET, "Failed to create window: {:?}", &error);
                                 backend.window_channel.push(id, Err(error));
                             }
                         }
                     }
                     AgnajiEvent::Quit => {
                         *control_flow = ControlFlow::ExitWithCode(0);
+                        log::debug!(target: EVENT_LOOP_LOG_TARGET,"Received quit order");
                     }
                 }
             }
@@ -112,6 +122,7 @@ pub(in crate::winit) fn run<F>(post_init: F) where F: FnOnce(Arc<WinitBackend>) 
             Event::RedrawRequested(_) => {}
             Event::RedrawEventsCleared => {}
             Event::LoopDestroyed => {
+                log::debug!(target: EVENT_LOOP_LOG_TARGET, "Event loop destroyed");
                 engine_thread.take().unwrap().join().unwrap();
             }
         }
@@ -155,9 +166,11 @@ impl WindowChannel {
             }
 
             if let Some(index) = found {
+                log::debug!(target: DEFAULT_LOG_TARGET, "Window creation request fulfilled. RequestID: {}", id);
                 return guard.available_windows.swap_remove(index).1;
             }
 
+            log::debug!(target: DEFAULT_LOG_TARGET, "Waiting for window creation request fulfillment. RequestID: {}", id);
             guard = self.condvar.wait(guard).unwrap();
         }
     }

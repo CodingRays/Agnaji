@@ -10,6 +10,8 @@ use crate::prelude::*;
 use crate::winit::window::Window;
 use crate::winit::worker::WindowChannel;
 
+const DEFAULT_LOG_TARGET: &'static str = "agnaji::winit";
+
 pub struct WinitBackend {
     event_loop_proxy: Mutex<EventLoopProxy<AgnajiEvent>>,
     quit_requested: AtomicBool,
@@ -28,12 +30,16 @@ impl WinitBackend {
     pub fn quit(&self) {
         if self.quit_requested.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
             self.push_event(AgnajiEvent::Quit);
+            log::debug!(target: DEFAULT_LOG_TARGET, "Submitted quit request");
+        } else {
+            log::debug!(target: DEFAULT_LOG_TARGET, "Quit request inhibited. (Already submitted request before)");
         }
     }
 
     pub fn create_window(&self, title: String, initial_size: Option<Vec2u32>) -> Result<Arc<Window>, String> {
         let id = self.window_channel.allocate_id();
 
+        log::debug!(target: DEFAULT_LOG_TARGET, "Submitted window creation request: {:?} size: {:?} (RequestID: {})", &title, initial_size, id);
         self.push_event(AgnajiEvent::CreateWindow {
             id,
             title,
