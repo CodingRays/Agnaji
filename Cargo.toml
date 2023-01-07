@@ -5,11 +5,20 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/CodingRays/Agnaji"
 
+[features]
+winit = ["dep:winit"]
+
 [dependencies]
 ash = "0.37.1"
 log = "0.4.17"
 nalgebra = "0.31.4"
 static_assertions = "1.1.0"
+winit = { version = "0.27.5", optional = true }
 
 [dev-dependencies]
 pretty_env_logger = "0.4.0"
+
+[[example]]
+name = "cube"
+crate-type = ["bin"]
+required-features = ["winit"]
