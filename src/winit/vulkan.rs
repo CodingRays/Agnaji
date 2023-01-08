@@ -22,7 +22,7 @@ impl WinitVulkanSurfaceProvider {
 }
 
 impl VulkanSurfaceProvider for WinitVulkanSurfaceProvider {
-    fn create_surface<'a, 'b>(&'a self, instance: &'b InstanceContext) -> Result<Surface<'a, 'b>, vk::Result> {
+    unsafe fn create_surface<'a, 'b>(&'a self, instance: &'b InstanceContext) -> Result<Surface<'a, 'b>, vk::Result> {
         let surface = unsafe {
             ash_window::create_surface(
                 instance.get_entry(),

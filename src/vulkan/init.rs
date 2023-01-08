@@ -104,7 +104,7 @@ impl AgnajiVulkanInitializer {
                 let khr_surface = self.instance.get_khr_surface().unwrap();
 
                 for (_, registered) in surfaces.iter() {
-                    let surface = registered.surface_provider.create_surface(&self.instance)
+                    let surface = unsafe { registered.surface_provider.create_surface(&self.instance) }
                         .map_err(|err| DeviceReportGenerationError::SurfaceCreationFailed(err))?;
 
                     let handle = surface.get_handle();
