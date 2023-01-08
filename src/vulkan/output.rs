@@ -1,4 +1,11 @@
 mod surface {
+    //! Output to a vulkan surface.
+    //!
+    //! The public api is the [`SurfaceOutput`] struct which implements the [`OutputTarget`] trait.
+    //!
+    //! Every [`SurfaceOutput`] spawns a new thread using [`SurfaceOutputWorker`] which will be
+    //! managing the surface and render from it.
+
     use std::collections::{HashMap, HashSet};
     use std::sync::{Arc, Mutex};
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -20,12 +27,19 @@ mod surface {
 
     pub type FormatSelectionFn = dyn Fn(&[ColorSpaceFormats]) -> (vk::ColorSpaceKHR, vk::Format) + Send;
 
+    /// Output to a vulkan surface. The surface is provided by a [`VulkanSurfaceProvider`].
+    ///
+    /// By default this output will always wait for a scene update to start rendering a new frame.
+    /// This behaviour can be controlled using [`SurfaceOutput::set_wait_for_scene_update`].
     pub struct SurfaceOutput {
         share: Arc<Share>,
         worker: Option<JoinHandle<()>>,
     }
 
     impl SurfaceOutput {
+        /// Creates a new [`SurfaceOutput`].
+        ///
+        /// The `name` is a optional name that will be used for debugging and logging purposes only.
         pub(in crate::vulkan) fn new(agnaji: Arc<AgnajiVulkan>, surface_provider: Box<dyn VulkanSurfaceProvider>, name: Option<String>) -> Self {
             let share = Arc::new(Share::new(agnaji, name));
 
@@ -51,12 +65,19 @@ mod surface {
         /// Automatically triggers a format reselection even if the same selection function is
         /// provided. If only reselection is needed [`SurfaceOutput::reselect_format`] should be
         /// called instead.
+        ///
+        /// **Note:** The format reselection will happen on a different thread and hence may be
+        /// delayed quiet a bit from calling this function. In any case this function will not block.
         pub fn set_format_selection_fn(&self, selection_fn: Option<Box<FormatSelectionFn>>) {
             let mut guard = self.share.guarded.lock().unwrap();
             guard.format_selection_fn = selection_fn;
             guard.should_select_format = true;
         }
 
+        /// Triggers a format reselection.
+        ///
+        /// **Note:** The format reselection will happen on a different thread and hence may be
+        /// delayed quiet a bit from calling this function. In any case this function will not block.
         pub fn reselect_format(&self) {
             self.share.guarded.lock().unwrap().should_select_format = true;
         }
@@ -75,6 +96,8 @@ mod surface {
         }
     }
 
+    /// Shared struct between the [`SurfaceOutput`] instance and its associated
+    /// [`SurfaceOutputWorker`] used for communication.
     struct Share {
         agnaji: Arc<AgnajiVulkan>,
         name: Option<String>,
@@ -130,7 +153,7 @@ mod surface {
 
             while !self.share.should_destroy() {
                 let instance = self.share.agnaji.instance.clone();
-                match self.surface_provider.create_surface(&instance) {
+                match unsafe { self.surface_provider.create_surface(&instance) } {
                     Ok(surface) => {
                         log::info!("Surface successfully created");
                         std::thread::yield_now();
@@ -168,6 +191,7 @@ mod surface {
             }
         }
 
+        /// Lists all supported surface formats for the provided surface.
         fn get_supported_surface_formats(&self, surface: vk::SurfaceKHR) -> Result<Box<[ColorSpaceFormats]>, vk::Result> {
             let device = &self.share.agnaji.device;
             let physical_device = device.get_physical_device();

@@ -42,12 +42,9 @@ impl SurfacePlatform {
 pub trait VulkanSurfaceProvider: Send {
     /// Creates a new surface.
     ///
-    /// # Panics
-    /// If a surface already exists this function panics.
-    ///
     /// # Safety
-    /// The returned function *must* be called after the surface has been destroyed.
-    fn create_surface<'a, 'b>(&'a self, instance: &'b crate::vulkan::InstanceContext) -> Result<Surface<'a, 'b>, vk::Result>;
+    /// Calling this function while a surface already exists in undefined behaviour.
+    unsafe fn create_surface<'a, 'b>(&'a self, instance: &'b crate::vulkan::InstanceContext) -> Result<Surface<'a, 'b>, vk::Result>;
 
     /// Returns the size of the canvas in pixels backing the surface (for example the window size)
     /// or [`None`] if that is currently undefined. If [`None`] is returned the renderer may not
@@ -57,7 +54,8 @@ pub trait VulkanSurfaceProvider: Send {
 
 /// Wrapper of a vulkan surface.
 ///
-/// Automatically destroys the surface when this struct is dropped.
+/// Ensures the struct backing the surface stays alive using the `'a` lifetime and automatically
+/// destroys the surface when this struct is dropped.
 pub struct Surface<'a, 'b> {
     instance: &'b crate::vulkan::InstanceContext,
     surface: vk::SurfaceKHR,
@@ -68,9 +66,6 @@ pub struct Surface<'a, 'b> {
 
 impl<'a, 'b> Surface<'a, 'b> {
     /// Creates a new instance of this struct for the provided surface.
-    ///
-    /// The `guard` is dropped after the surface has been destroyed. This can be used to keep track
-    /// of surface state.
     pub fn new(instance: &'b crate::vulkan::InstanceContext, surface: vk::SurfaceKHR) -> Self {
         if instance.get_khr_surface().is_none() {
             panic!("Called Surface::new with instance that does not have the VK_KHR_surface extension enabled");
@@ -86,6 +81,11 @@ impl<'a, 'b> Surface<'a, 'b> {
         }
     }
 
+    /// Returns the vulkan surface handle-
+    ///
+    /// # Safety
+    /// The surface will be destroyed when this struct is dropped and hence the handle must not be
+    /// used afterwards.
     pub fn get_handle(&self) -> vk::SurfaceKHR {
         self.surface
     }
