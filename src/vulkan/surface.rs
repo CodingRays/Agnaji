@@ -9,34 +9,6 @@ use crate::prelude::*;
 
 define_counting_id_type!(pub, SurfaceProviderId);
 
-/// Describes a native platform used to create surfaces
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub enum SurfacePlatform {
-    Android,
-    Headless,
-    Metal,
-    Wayland,
-    Windows,
-    Xcb,
-    Xlib,
-}
-
-impl SurfacePlatform {
-    /// Stores all required instance extensions to use this surface platform in the provided Vec.
-    pub fn get_required_instance_extensions(&self, extensions: &mut Vec<CString>) {
-        extensions.push(CString::from(ash::extensions::khr::Surface::name()));
-        match self {
-            SurfacePlatform::Android => extensions.push(CString::from(ash::extensions::khr::AndroidSurface::name())),
-            SurfacePlatform::Headless => extensions.push(CString::from(ash::extensions::ext::HeadlessSurface::name())),
-            SurfacePlatform::Metal => extensions.push(CString::from(ash::extensions::ext::MetalSurface::name())),
-            SurfacePlatform::Wayland => extensions.push(CString::from(ash::extensions::khr::WaylandSurface::name())),
-            SurfacePlatform::Windows => extensions.push(CString::from(ash::extensions::khr::Win32Surface::name())),
-            SurfacePlatform::Xcb => extensions.push(CString::from(ash::extensions::khr::XcbSurface::name())),
-            SurfacePlatform::Xlib => extensions.push(CString::from(ash::extensions::khr::XlibSurface::name())),
-        }
-    }
-}
-
 /// Provides a api to create and use vulkan surfaces associated with some canvas (for example a
 /// window).
 pub trait VulkanSurfaceProvider: Send {

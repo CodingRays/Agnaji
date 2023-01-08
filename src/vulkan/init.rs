@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::ffi::CString;
 use std::sync::Arc;
 use ash::vk;
 
@@ -29,24 +30,17 @@ impl AgnajiVulkanInitializer {
     /// Creates a new initializer. The vulkan instance is created as part of this function and as
     /// such any settings needed to configure the instance need to be passed to this function.
     ///
-    /// In order to allow surface creation a list of required surface platforms need to be provided.
-    /// If `surface_platforms` is empty or [`None`] the `VK_KHR_Surface` extension will also not be
-    /// enabled.
+    /// Surface extensions will not be enabled by default. The application must provide all required
+    /// extensions for surface creation. If the `VK_KHR_surface` extension is listed some optional
+    /// derived extensions (for example `VK_EXT_swapchain_colorspace`) will be automatically enabled
+    /// if supported.
     ///
     /// If `enable_debug` is false no debugging extensions or validation layers will be enabled and
     /// some engine systems may disable certain debugging tools. Otherwise debugging features will
     /// be enabled as supported by the current platform.
-    pub fn new(surface_platforms: Option<&[surface::SurfacePlatform]>, enable_debug: bool) -> Self {
-        let mut required_extensions = Vec::new();
-
-        if let Some(surface_platforms) = surface_platforms {
-            for surface_platform in surface_platforms {
-                surface_platform.get_required_instance_extensions(&mut required_extensions);
-            }
-        }
-
+    pub fn new<E>(required_instance_extensions: E, enable_debug: bool) -> Self where E: Iterator<Item=CString> {
         let entry = unsafe { ash::Entry::load() }.unwrap();
-        let instance = Arc::new(InstanceContext::new(entry, enable_debug, required_extensions).unwrap());
+        let instance = Arc::new(InstanceContext::new(entry, enable_debug, required_instance_extensions).unwrap());
 
         let surfaces = instance.get_khr_surface().map(|_| HashMap::new());
 
@@ -57,9 +51,9 @@ impl AgnajiVulkanInitializer {
     }
 
     /// Equivalent to calling [`AgnajiVulkanInitializer::new`] with `surface_platforms`set to
-    /// [`None`].
+    /// an empty iterator.
     pub fn new_headless(enable_debug: bool) -> Self {
-        Self::new(None, enable_debug)
+        Self::new(std::iter::empty(), enable_debug)
     }
 
     pub fn get_instance(&self) -> &Arc<InstanceContext> {

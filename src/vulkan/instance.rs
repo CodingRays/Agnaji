@@ -91,7 +91,7 @@ pub struct InstanceContext {
 }
 
 impl InstanceContext {
-    pub fn new(entry: ash::Entry, enable_debug: bool, required_extensions: Vec<CString>) -> Result<Self, InstanceCreateError> {
+    pub fn new<E>(entry: ash::Entry, enable_debug: bool, required_extensions: E) -> Result<Self, InstanceCreateError> where E: Iterator<Item=CString> {
         // Validate API version
         let version = match entry.try_enumerate_instance_version().map_err(|err| {
             log::error!("Failed to enumerate instance version {:?}", err);
@@ -137,7 +137,7 @@ impl InstanceContext {
         }
 
         let mut missing_extensions = Vec::new();
-        for required_extension in required_extensions.into_iter() {
+        for required_extension in required_extensions {
             if supported_extensions.contains(&required_extension) {
                 enabled_extensions.insert(required_extension);
             } else {
@@ -269,16 +269,16 @@ unsafe extern "system" fn debug_log_callback(message_severity: vk::DebugUtilsMes
             Ok(message) => {
                 match message_severity {
                     vk::DebugUtilsMessageSeverityFlagsEXT::ERROR => {
-                        log::error!(target: "agnaji::vulkan_debug", "{}", message);
+                        log::error!(target: "agnaji::Vulkan", "{}", message);
                     },
                     vk::DebugUtilsMessageSeverityFlagsEXT::WARNING => {
-                        log::warn!(target: "agnaji::vulkan_debug", "{}", message);
+                        log::warn!(target: "agnaji::Vulkan", "{}", message);
                     },
                     vk::DebugUtilsMessageSeverityFlagsEXT::INFO => {
-                        log::info!(target: "agnaji::vulkan_debug", "{}", message);
+                        log::info!(target: "agnaji::Vulkan", "{}", message);
                     },
                     vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE => {
-                        log::debug!(target: "agnaji::vulkan_debug", "{}", message);
+                        log::debug!(target: "agnaji::Vulkan", "{}", message);
                     },
                     _ => {
                         log::warn!("Unknown debug utils message severity: {:?}; {}", message_severity, message);
