@@ -71,6 +71,12 @@ pub struct MainDeviceContext {
     transfer_queue: Option<DeviceQueue>,
 }
 
+impl MainDeviceContext {
+    pub fn get_main_queue(&self) -> &DeviceQueue {
+        &self.main_queue
+    }
+}
+
 impl DeviceProvider for MainDeviceContext {
     fn get_instance(&self) -> &InstanceContext {
         &self.instance

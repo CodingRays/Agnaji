@@ -188,8 +188,12 @@ mod surface {
         fn run_surface_loop(&self, surface: vk::SurfaceKHR) -> Result<(), vk::Result> {
             // todo check surface present support
 
-            let supported_formats = self.get_supported_surface_formats(surface).map_err(|err| {
+            let supported_surface_formats = self.get_supported_surface_formats(surface).map_err(|err| {
                 log::error!("Failed to query supported surface formats: {:?}. (Output: {:?})", err, self.share.name);
+                err
+            })?;
+            let present_mode = self.select_present_mode(surface).map_err(|err| {
+                log::error!("Failed to select present mode: {:?}. (Output: {:?})", err, self.share.name);
                 err
             })?;
 
@@ -283,6 +287,26 @@ mod surface {
             }
 
             &supported.surface_formats()[0]
+        }
+
+        fn select_present_mode(&self, surface: vk::SurfaceKHR) -> Result<vk::PresentModeKHR, vk::Result> {
+            const PRESENT_MODE_PRIORITIES: &[vk::PresentModeKHR] = &[
+                vk::PresentModeKHR::MAILBOX,
+                vk::PresentModeKHR::FIFO
+            ];
+
+            let supported_present_modes = unsafe {
+                self.share.agnaji.instance.get_khr_surface().unwrap()
+                    .get_physical_device_surface_present_modes(self.share.agnaji.device.get_physical_device(), surface)
+            }?;
+
+            for present_mode in PRESENT_MODE_PRIORITIES {
+                if supported_present_modes.contains(present_mode) {
+                    return Ok(*present_mode)
+                }
+            }
+
+            panic!("VK_PRESENT_MODE_FIFO_KHR must be supported by all vulkan implementations");
         }
     }
 
