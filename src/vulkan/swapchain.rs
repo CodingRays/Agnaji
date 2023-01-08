@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 use std::time::{Duration, Instant};
 
 use ash::vk;
@@ -32,8 +31,6 @@ pub struct Swapchain<'a> {
 
     acquire_semaphores: Box<[vk::Semaphore]>,
     next_acquire_semaphore: usize,
-
-    _phantom_data: PhantomData<&'a ()>,
 }
 
 impl<'a> Swapchain<'a> {
@@ -79,9 +76,7 @@ impl<'a> Swapchain<'a> {
                     };
                 }
                 for image in &images {
-                    unsafe {
-                        image.destroy(device);
-                    }
+                    image.destroy(device);
                 }
                 err
             })?;
@@ -96,7 +91,6 @@ impl<'a> Swapchain<'a> {
             acquire_fence,
             acquire_semaphores: acquire_semaphores.into_boxed_slice(),
             next_acquire_semaphore: 0,
-            _phantom_data: PhantomData,
         })
     }
 

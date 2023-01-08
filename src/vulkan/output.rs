@@ -6,22 +6,23 @@ mod surface {
     //! Every [`SurfaceOutput`] spawns a new thread using [`SurfaceOutputWorker`] which will be
     //! managing the surface and render from it.
 
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
     use std::collections::hash_map::Keys;
     use std::iter::{Map, Repeat, Zip};
     use std::slice::Iter;
     use std::sync::{Arc, Mutex};
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::thread::JoinHandle;
+    use std::time::Duration;
 
     use ash::vk;
-    use nalgebra::sup;
 
     use crate::output::OutputTarget;
     use crate::scene::CameraComponent;
     use crate::vulkan::AgnajiVulkan;
     use crate::vulkan::device::DeviceProvider;
     use crate::vulkan::surface::VulkanSurfaceProvider;
+    use crate::vulkan::swapchain::{NextImageResult, Swapchain};
 
     /// Selects a format for a swapchain from the list of available formats.
     ///
@@ -186,21 +187,23 @@ mod surface {
         }
 
         fn run_surface_loop(&self, surface: vk::SurfaceKHR) -> Result<(), vk::Result> {
-            // todo check surface present support
-
-            let supported_surface_formats = self.get_supported_surface_formats(surface).map_err(|err| {
-                log::error!("Failed to query supported surface formats: {:?}. (Output: {:?})", err, self.share.name);
-                err
-            })?;
-            let present_mode = self.select_present_mode(surface).map_err(|err| {
-                log::error!("Failed to select present mode: {:?}. (Output: {:?})", err, self.share.name);
-                err
-            })?;
+            let mut swapchain = self.create_swapchain(surface)?;
 
             while !self.share.should_destroy() {
-                // todo do stuff with surface
-
-                std::thread::yield_now(); // Dont want to blow cpu usage during tests
+                match swapchain.with_next_image(Duration::from_millis(500), |image, acquire_semaphore| {
+                    todo!()
+                }) {
+                    NextImageResult::Ok => {}
+                    NextImageResult::MustRecreate |
+                    NextImageResult::Suboptimal => {
+                        drop(swapchain);
+                        swapchain = self.create_swapchain(surface)?;
+                    }
+                    NextImageResult::Timeout => {}
+                    NextImageResult::VulkanError(err) => {
+                        return Err(err);
+                    }
+                }
             }
 
             Ok(())
@@ -307,6 +310,10 @@ mod surface {
             }
 
             panic!("VK_PRESENT_MODE_FIFO_KHR must be supported by all vulkan implementations");
+        }
+
+        fn create_swapchain(&self, surface: vk::SurfaceKHR) -> Result<Swapchain, vk::Result> {
+            todo!()
         }
     }
 
