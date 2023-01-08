@@ -121,12 +121,8 @@ pub(in crate::winit) fn run<F>(post_init: F) where F: FnOnce(Arc<WinitBackend>) 
                 }
             }
             Event::Suspended => {
-                log::debug!(target: EVENT_LOOP_LOG_TARGET, "Received suspended event");
-                backend.event_loop_signal_suspended();
             }
             Event::Resumed => {
-                log::debug!(target: EVENT_LOOP_LOG_TARGET, "Received resumed event");
-                backend.event_loop_signal_resumed();
             }
             Event::MainEventsCleared => {}
             Event::RedrawRequested(_) => {}

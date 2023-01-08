@@ -31,7 +31,7 @@ mod surface {
 
             let share_clone = share.clone();
             let worker = std::thread::spawn(move || {
-                SurfaceOutputWorker::run(share_clone, todo!(), surface_provider);
+                SurfaceOutputWorker::run(share_clone, surface_provider);
             });
 
             Self {
@@ -113,15 +113,13 @@ mod surface {
 
     struct SurfaceOutputWorker {
         share: Arc<Share>,
-        device: Arc<dyn SwapchainProvider>,
         surface_provider: Box<dyn VulkanSurfaceProvider>,
     }
 
     impl SurfaceOutputWorker {
-        fn run(share: Arc<Share>, device: Arc<dyn SwapchainProvider>, surface_provider: Box<dyn VulkanSurfaceProvider>) {
+        fn run(share: Arc<Share>, surface_provider: Box<dyn VulkanSurfaceProvider>) {
             Self {
                 share,
-                device,
                 surface_provider,
             }.run_internal();
         }
@@ -131,15 +129,10 @@ mod surface {
             let mut err_repeat = 0;
 
             while !self.share.should_destroy() {
-                while self.surface_provider.suspended() {
-                    self.surface_provider.wait_unsuspended();
-                    err_repeat = 0;
-                }
-
-                let name = self.share.name.clone();
                 let instance = self.share.agnaji.instance.clone();
                 match self.surface_provider.create_surface(&instance) {
                     Ok(surface) => {
+                        log::info!("Surface successfully created");
                         std::thread::yield_now();
                     }
                     Err(err) => {
@@ -168,7 +161,7 @@ mod surface {
                 }
             };
 
-            while !self.surface_provider.suspended() && !self.share.should_destroy() {
+            while !self.share.should_destroy() {
                 // todo do stuff with surface
 
                 std::thread::yield_now(); // Dont want to blow cpu usage during tests
@@ -176,9 +169,10 @@ mod surface {
         }
 
         fn get_supported_surface_formats(&self, surface: vk::SurfaceKHR) -> Result<Box<[ColorSpaceFormats]>, vk::Result> {
-            let physical_device = self.device.get_physical_device();
-            let instance = self.device.get_instance().get_instance();
-            let khr_surface = self.device.get_instance().get_khr_surface().unwrap();
+            let device = &self.share.agnaji.device;
+            let physical_device = device.get_physical_device();
+            let instance = device.get_instance().get_instance();
+            let khr_surface = device.get_instance().get_khr_surface().unwrap();
 
             let supported_formats = unsafe {
                 khr_surface.get_physical_device_surface_formats(physical_device, surface)

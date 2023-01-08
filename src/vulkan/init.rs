@@ -5,18 +5,12 @@ use ash::vk;
 use crate::vulkan::{AgnajiVulkan, InstanceContext, surface};
 use crate::vulkan::device::MainDeviceReport;
 use crate::vulkan::output::SurfaceOutput;
-use crate::vulkan::surface::{Surface, SurfaceProviderId, VulkanSurfaceCreateError, VulkanSurfaceProvider};
+use crate::vulkan::surface::{Surface, SurfaceProviderId, VulkanSurfaceProvider};
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum DeviceReportGenerationError {
-    SurfaceCreationFailed(VulkanSurfaceCreateError),
+    SurfaceCreationFailed(vk::Result),
     Vulkan(vk::Result),
-}
-
-impl From<VulkanSurfaceCreateError> for DeviceReportGenerationError {
-    fn from(error: VulkanSurfaceCreateError) -> Self {
-        Self::SurfaceCreationFailed(error)
-    }
 }
 
 impl From<vk::Result> for DeviceReportGenerationError {
@@ -110,7 +104,8 @@ impl AgnajiVulkanInitializer {
                 let khr_surface = self.instance.get_khr_surface().unwrap();
 
                 for (_, registered) in surfaces.iter() {
-                    let surface = registered.surface_provider.create_surface(&self.instance)?;
+                    let surface = registered.surface_provider.create_surface(&self.instance)
+                        .map_err(|err| DeviceReportGenerationError::SurfaceCreationFailed(err))?;
 
                     let handle = surface.get_handle();
                     for i in 0..queue_count {

@@ -15,8 +15,6 @@ pub struct Window {
     window: WinitWindow,
     close_requested: AtomicBool,
     state: Mutex<WindowState>,
-
-    has_surface: Mutex<bool>,
 }
 
 impl Window {
@@ -26,7 +24,6 @@ impl Window {
             window,
             close_requested: AtomicBool::new(false),
             state: Mutex::new(WindowState::new(initial_size)),
-            has_surface: Mutex::new(false),
         }
     }
 
@@ -50,31 +47,8 @@ impl Window {
         Box::new(WinitVulkanSurfaceProvider::new(self.clone()))
     }
 
-    pub fn try_build_surface<F, S, E>(&self, f: F) -> Result<(SurfaceGuard, S), SurfaceBuildError<E>> where F: FnOnce(&WinitWindow) -> Result<S, E>, E: Clone + Debug {
-        let mut guard = self.has_surface.lock().unwrap();
-        if *guard == true {
-            return Err(SurfaceBuildError::SurfaceAlreadyExists)
-        }
-
-        let mut result = Err(SurfaceBuildError::SurfaceAlreadyExists);
-        self.backend.with_surface_count_guard_inc(|suspended| {
-            if suspended {
-                result = Err(SurfaceBuildError::Suspended);
-                false
-            } else {
-                result = f(&self.window).map_err(SurfaceBuildError::BuildError);
-                result.is_ok()
-            }
-        });
-
-        let surface = result?;
-
-        *guard = true;
-        drop(guard);
-
-        Ok((SurfaceGuard {
-            window: self,
-        }, surface))
+    pub fn get_window(&self) -> &winit::window::Window {
+        &self.window
     }
 
     pub(in crate::winit) fn on_close_requested(&self) {
@@ -83,18 +57,6 @@ impl Window {
 
     pub(in crate::winit) fn on_resize(&self, new_size: Vec2u32) {
         self.state.lock().unwrap().size = new_size;
-    }
-}
-
-unsafe impl HasRawWindowHandle for Window {
-    fn raw_window_handle(&self) -> RawWindowHandle {
-        self.window.raw_window_handle()
-    }
-}
-
-unsafe impl HasRawDisplayHandle for Window {
-    fn raw_display_handle(&self) -> RawDisplayHandle {
-        self.window.raw_display_handle()
     }
 }
 
@@ -108,27 +70,4 @@ impl WindowState {
             size: initial_size
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub enum SurfaceBuildError<E: Clone + Debug> {
-    SurfaceAlreadyExists,
-    Suspended,
-    BuildError(E),
-}
-
-pub struct SurfaceGuard<'a> {
-    window: &'a Window,
-}
-
-impl<'a> Drop for SurfaceGuard<'a> {
-    fn drop(&mut self) {
-        let mut guard = self.window.has_surface.lock().unwrap();
-        *guard = false;
-        self.window.backend.dec_surface_count();
-        drop(guard);
-    }
-}
-
-impl<'a> crate::vulkan::surface::SurfaceGuard for SurfaceGuard<'a> {
 }
