@@ -9,8 +9,8 @@ mod surface {
     use crate::output::OutputTarget;
     use crate::scene::CameraComponent;
     use crate::vulkan::AgnajiVulkan;
-    use crate::vulkan::device::{DeviceProvider, SwapchainProvider};
-    use crate::vulkan::surface::{Surface, VulkanSurfaceProvider};
+    use crate::vulkan::device::DeviceProvider;
+    use crate::vulkan::surface::VulkanSurfaceProvider;
 
 
     pub struct ColorSpaceFormats {

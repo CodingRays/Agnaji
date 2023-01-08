@@ -13,7 +13,7 @@ use crate::Agnaji;
 pub use instance::InstanceContext;
 
 use crate::scene::Scene;
-use crate::vulkan::device::{MainDeviceContext, MainDeviceReport};
+use crate::vulkan::device::MainDeviceContext;
 use crate::vulkan::output::SurfaceOutput;
 use crate::vulkan::scene::VulkanScene;
 use crate::vulkan::surface::{SurfaceProviderId, VulkanSurfaceProvider};

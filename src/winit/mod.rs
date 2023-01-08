@@ -3,7 +3,7 @@ mod window;
 mod vulkan;
 
 use std::panic::{RefUnwindSafe, UnwindSafe};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use static_assertions::assert_impl_all;
 use winit::event_loop::EventLoopProxy;

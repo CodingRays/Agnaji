@@ -1,7 +1,5 @@
-use std::any::Any;
 use std::ffi::CString;
 use std::marker::PhantomData;
-use std::sync::Arc;
 
 use ash::vk;
 use static_assertions::assert_impl_all;

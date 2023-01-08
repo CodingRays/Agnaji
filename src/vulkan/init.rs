@@ -5,7 +5,7 @@ use ash::vk;
 use crate::vulkan::{AgnajiVulkan, InstanceContext, surface};
 use crate::vulkan::device::MainDeviceReport;
 use crate::vulkan::output::SurfaceOutput;
-use crate::vulkan::surface::{Surface, SurfaceProviderId, VulkanSurfaceProvider};
+use crate::vulkan::surface::{SurfaceProviderId, VulkanSurfaceProvider};
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum DeviceReportGenerationError {

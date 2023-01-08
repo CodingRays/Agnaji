@@ -1,8 +1,5 @@
-use std::fmt::Debug;
-use std::ops::Deref;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard};
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawDisplayHandle, RawWindowHandle};
+use std::sync::{Arc, Mutex};
 use winit::window::Window as WinitWindow;
 
 use crate::prelude::*;

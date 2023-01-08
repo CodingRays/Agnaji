@@ -4,7 +4,6 @@ use std::sync::{Arc, Condvar, Mutex, Weak};
 use winit::dpi::PhysicalSize;
 use winit::error::OsError;
 use winit::event::{Event, WindowEvent};
-use winit::event::VirtualKeyCode::M;
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{WindowBuilder, WindowId};
 use crate::prelude::Vec2u32;
