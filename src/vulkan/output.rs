@@ -18,9 +18,10 @@ mod surface {
     use ash::vk;
 
     use crate::output::OutputTarget;
+    use crate::prelude::Vec2u32;
     use crate::scene::CameraComponent;
     use crate::vulkan::AgnajiVulkan;
-    use crate::vulkan::device::DeviceProvider;
+    use crate::vulkan::device::{DeviceProvider, SwapchainProvider};
     use crate::vulkan::surface::VulkanSurfaceProvider;
     use crate::vulkan::swapchain::{NextImageResult, Swapchain};
 
@@ -187,22 +188,33 @@ mod surface {
         }
 
         fn run_surface_loop(&self, surface: vk::SurfaceKHR) -> Result<(), vk::Result> {
-            let mut swapchain = self.create_swapchain(surface)?;
-
             while !self.share.should_destroy() {
-                match swapchain.with_next_image(Duration::from_millis(500), |image, acquire_semaphore| {
-                    todo!()
-                }) {
-                    NextImageResult::Ok => {}
-                    NextImageResult::MustRecreate |
-                    NextImageResult::Suboptimal => {
-                        drop(swapchain);
-                        swapchain = self.create_swapchain(surface)?;
-                    }
-                    NextImageResult::Timeout => {}
-                    NextImageResult::VulkanError(err) => {
+                match self.create_swapchain(surface) {
+                    Ok(mut swapchain) => {
+                        while !self.share.should_destroy() {
+                            match swapchain.with_next_image(Duration::from_millis(500), |image, acquire_semaphore| {
+                                todo!()
+                            }) {
+                                NextImageResult::Ok => {}
+                                NextImageResult::MustRecreate |
+                                NextImageResult::Suboptimal => {
+                                    break;
+                                }
+                                NextImageResult::Timeout => {}
+                                NextImageResult::VulkanError(err) => {
+                                    return Err(err);
+                                }
+                            }
+                        }
+                    },
+                    Err(vk::Result::SUCCESS) => {
+                        log::info!("Unable to create swapchain. Retrying in 500ms... (Output: {:?})", self.share.name);
+                        std::thread::sleep(Duration::from_millis(500));
+                    },
+                    Err(err) => {
+                        log::error!("Failed to create swapchain: {:?}. (Output: {:?})", err, self.share.name);
                         return Err(err);
-                    }
+                    },
                 }
             }
 
@@ -312,8 +324,74 @@ mod surface {
             panic!("VK_PRESENT_MODE_FIFO_KHR must be supported by all vulkan implementations");
         }
 
+        /// Note: we hijacked the result value SUCCESS to mean that swapchain creation failed due to
+        /// not having a valid size.
         fn create_swapchain(&self, surface: vk::SurfaceKHR) -> Result<Swapchain, vk::Result> {
-            todo!()
+            let surface_khr = self.share.agnaji.instance.get_khr_surface().unwrap();
+            let physical_device = self.share.agnaji.device.get_physical_device();
+
+            let capabilities = unsafe {
+                surface_khr.get_physical_device_surface_capabilities(physical_device, surface)
+            }?;
+
+            let canvas_size = self.surface_provider.get_canvas_size().unwrap_or(Vec2u32::new(1, 1));
+            let image_extent = if capabilities.current_extent.width == u32::MAX && capabilities.current_extent.height == u32::MAX {
+                vk::Extent2D{ width: canvas_size.x, height: canvas_size.y }
+            } else {
+                if capabilities.max_image_extent.width == 0 || capabilities.max_image_extent.height == 0 {
+                    return Err(vk::Result::SUCCESS);
+                }
+                let width = std::cmp::max(capabilities.min_image_extent.width, std::cmp::min(capabilities.max_image_extent.width, canvas_size.x));
+                let height = std::cmp::max(capabilities.min_image_extent.height, std::cmp::min(capabilities.max_image_extent.height, canvas_size.y));
+                vk::Extent2D{ width, height }
+            };
+
+            let image_count = if capabilities.max_image_count == 0 {
+                std::cmp::max(capabilities.min_image_count, 3)
+            } else {
+                std::cmp::max(capabilities.min_image_count, std::cmp::min(capabilities.max_image_count, 3))
+            };
+
+            let composite_alpha =
+            if capabilities.supported_composite_alpha.contains(vk::CompositeAlphaFlagsKHR::OPAQUE) {
+                vk::CompositeAlphaFlagsKHR::OPAQUE
+            } else if capabilities.supported_composite_alpha.contains(vk::CompositeAlphaFlagsKHR::PRE_MULTIPLIED) {
+                vk::CompositeAlphaFlagsKHR::PRE_MULTIPLIED
+            } else if capabilities.supported_composite_alpha.contains(vk::CompositeAlphaFlagsKHR::POST_MULTIPLIED) {
+                vk::CompositeAlphaFlagsKHR::POST_MULTIPLIED
+            } else {
+                vk::CompositeAlphaFlagsKHR::INHERIT
+            };
+
+            let supported_surface_formats = self.get_supported_surface_formats(surface)?;
+            let surface_format = self.select_format(&supported_surface_formats);
+
+            let present_mode = self.select_present_mode(surface)?;
+
+            let create_info = vk::SwapchainCreateInfoKHR::builder()
+                .surface(surface)
+                .min_image_count(image_count)
+                .image_format(surface_format.format)
+                .image_color_space(surface_format.color_space)
+                .image_extent(image_extent)
+                .image_array_layers(1)
+                .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
+                .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
+                .pre_transform(capabilities.current_transform)
+                .composite_alpha(composite_alpha)
+                .present_mode(present_mode)
+                .clipped(true);
+
+            let swapchain = unsafe {
+                self.share.agnaji.device.get_swapchain_khr().unwrap().create_swapchain(&create_info, None)
+            }?;
+
+            Ok(Swapchain::new(swapchain, &self.share.agnaji.device).map_err(|err| {
+                unsafe {
+                    self.share.agnaji.device.get_swapchain_khr().unwrap().destroy_swapchain(swapchain, None);
+                }
+                err
+            })?)
         }
     }
 
